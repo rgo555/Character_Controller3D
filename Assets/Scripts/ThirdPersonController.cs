@@ -14,6 +14,7 @@ public class ThirdPersonController : MonoBehaviour
     public float speed = 5;
     public float jumpHeight = 1;
     public float gravity = -9.81f;
+    [SerializeField]private float pushStrength = 4f;
     [Header("Fisicas")]
 
     //variables para el ground sensor
@@ -31,6 +32,11 @@ public class ThirdPersonController : MonoBehaviour
     //variables para el movimiento del raton con virtual camera
     public Cinemachine.AxisState xAxis;
     public Cinemachine.AxisState yAxis;
+
+    //Variable para coger objetos
+    public GameObject objectToPick;
+    [SerializeField]private GameObject pickedObject;
+    [SerializeField]Transform interactionZone;
 
     public GameObject[] cameras;
     
@@ -56,6 +62,7 @@ public class ThirdPersonController : MonoBehaviour
         
         //Lamamaos la funcion de salto
         Jump();
+        PickObjects();
 
         RaycastHit hit;
         if(Physics.Raycast(transform.position, transform.forward, out hit, 20f, raylayer))
@@ -83,7 +90,7 @@ public class ThirdPersonController : MonoBehaviour
             }
         }
     }
-
+#region FuncionesDeMovimiento
     void Movement()
     {
         //Creamos un Vector3 y en los ejes X y Z le asignamos los inputs de movimiento
@@ -186,7 +193,9 @@ public class ThirdPersonController : MonoBehaviour
             controller.Move(moveDirection.normalized * speed * Time.deltaTime);
         }
     }
+#endregion
 
+#region FuncionDeSalto
     //Funcion de salto y gravedad
     void Jump()
     {
@@ -231,7 +240,10 @@ public class ThirdPersonController : MonoBehaviour
         //asi le aplicaremos la gravedad
         controller.Move(playerVelocity * Time.deltaTime);
     }
+#endregion
+     
     void OnDrawGizmos() 
+
         {
             Gizmos.color = Color.yellow;
             Gizmos.DrawRay(transform.position, transform.forward * 20);
@@ -239,4 +251,47 @@ public class ThirdPersonController : MonoBehaviour
             Gizmos.color = Color.blue;
             Gizmos.DrawWireSphere(groundSensor.position, sensorRadius);
         }
+
+#region FuncionCoger
+    void PickObjects()
+    {
+        if(Input.GetKeyDown(KeyCode.E))
+        {
+            if(objectToPick != null && pickedObject == null && objectToPick.gameObject.GetComponent<PickableObject>().isPickable == true)
+            {
+                pickedObject = objectToPick;
+                pickedObject.GetComponent<PickableObject>().isPickable = false;
+                pickedObject.transform.SetParent(interactionZone);
+                pickedObject.transform.position = interactionZone.position; 
+                pickedObject.GetComponent<Rigidbody>().useGravity = false;
+                pickedObject.GetComponent<Rigidbody>().isKinematic = true; 
+            }
+            else if(pickedObject != null)
+            {
+                pickedObject.GetComponent<PickableObject>().isPickable = true;
+                pickedObject.transform.SetParent(null);
+                pickedObject.GetComponent<Rigidbody>().useGravity = true;
+                pickedObject.GetComponent<Rigidbody>().isKinematic = false; 
+                pickedObject = null;
+            }
+        }
+    }
+#endregion
+
+    private void OnControllerColliderHit(ControllerColliderHit hit) 
+    {
+        if(hit.gameObject.tag == "Empujable")
+        {
+            Rigidbody body = hit.collider.attachedRigidbody;
+
+            if(body == null || body.isKinematic)
+            {
+                return;
+            }
+
+            Vector3 pushDir = new Vector3(hit.moveDirection.x, 0f, hit.moveDirection.z);
+            body.velocity = pushDir * pushStrength / body.mass;
+        }
+    }
+
 }
